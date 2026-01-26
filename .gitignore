@@ -19,6 +19,7 @@ temp/
 # IDE
 .idea/
 .vscode/
+.claude/
 *.swp
 
 # Conda/venv
