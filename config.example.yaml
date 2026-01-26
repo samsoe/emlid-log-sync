@@ -2,15 +2,15 @@
 # Copy this file to config.yaml and update with your values
 
 emlid:
-  host: "10.0.106.161"
+  host: "192.168.1.100"        # Your Emlid device IP
   port: 22
   username: "reach"
-  password: "emlidreach"  # Change this!
+  password: "your-password"    # Change this!
   log_path: "/home/reach/logs/"
 
 gcs:
-  bucket: "mpg-aerial-survey"
-  prefix: "surveys/gps_network/base/top_house/logs/"
+  bucket: "your-bucket-name"
+  prefix: "path/to/logs/"
 
 local:
   temp_dir: "./temp"  # Temporary directory for downloads and extraction

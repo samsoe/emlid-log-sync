@@ -1,5 +1,10 @@
 # Local config (contains credentials)
 config.yaml
+config.local.yaml
+
+# Development notes (contains internal info)
+CLAUDE.md
+CLAUDE.local.md
 
 # Python
 __pycache__/
