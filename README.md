@@ -4,7 +4,7 @@ Local utility for syncing RTCM3 correction logs from Emlid GNSS base stations to
 
 ## Prerequisites
 
-- Network access to Emlid device (10.0.106.161) - either on internal network or via WARP VPN
+- Network access to your Emlid device
 - Google Cloud SDK (`gcloud`) installed and authenticated
 - Python 3.11+
 
@@ -93,8 +93,4 @@ See `config.example.yaml` for all available options:
 
 ## GCS Destination
 
-Files are uploaded to:
-
-```
-gs://mpg-aerial-survey/surveys/gps_network/base/top_house/logs/
-```
+Files are uploaded to the bucket and prefix specified in your `config.yaml`.
