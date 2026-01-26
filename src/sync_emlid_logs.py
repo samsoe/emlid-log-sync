@@ -13,15 +13,14 @@ Workflow:
 import argparse
 import fnmatch
 import logging
-import os
 import shutil
+import subprocess
 import sys
 import zipfile
 from pathlib import Path
 
 import paramiko
 import yaml
-from google.cloud import storage
 
 logging.basicConfig(
     level=logging.INFO,
@@ -94,21 +93,27 @@ def extract_rtcm3_files(zip_path: Path, extract_dir: Path) -> list[Path]:
 
 
 def upload_to_gcs(files: list[Path], bucket_name: str, prefix: str) -> int:
-    """Upload files to Google Cloud Storage."""
-    client = storage.Client()
-    bucket = client.bucket(bucket_name)
+    """Upload files to Google Cloud Storage using gcloud CLI."""
     uploaded = 0
 
     for file_path in files:
-        blob_name = f"{prefix}{file_path.name}"
-        blob = bucket.blob(blob_name)
+        gcs_path = f"gs://{bucket_name}/{prefix}{file_path.name}"
 
-        if blob.exists():
+        # Check if file already exists
+        check_cmd = ["gcloud", "storage", "ls", gcs_path]
+        result = subprocess.run(check_cmd, capture_output=True, text=True)
+        if result.returncode == 0:
             logger.info(f"Skipping {file_path.name} (already exists in GCS)")
             continue
 
-        logger.info(f"Uploading {file_path.name} to gs://{bucket_name}/{blob_name}")
-        blob.upload_from_filename(str(file_path))
+        logger.info(f"Uploading {file_path.name} to {gcs_path}")
+        upload_cmd = ["gcloud", "storage", "cp", str(file_path), gcs_path]
+        result = subprocess.run(upload_cmd, capture_output=True, text=True)
+
+        if result.returncode != 0:
+            logger.error(f"Upload failed: {result.stderr}")
+            raise RuntimeError(f"Failed to upload {file_path.name}")
+
         uploaded += 1
 
     logger.info(f"Uploaded {uploaded} files to GCS")
@@ -122,7 +127,7 @@ def cleanup_local(temp_dir: Path) -> None:
         logger.info(f"Cleaned up {temp_dir}")
 
 
-def sync_logs(config: dict, dry_run: bool = False) -> None:
+def sync_logs(config: dict, dry_run: bool = False, limit: int = 0) -> None:
     """Main sync workflow."""
     temp_dir = Path(config["local"]["temp_dir"]).resolve()
     temp_dir.mkdir(parents=True, exist_ok=True)
@@ -140,6 +145,10 @@ def sync_logs(config: dict, dry_run: bool = False) -> None:
         if not zip_files:
             logger.info("No ZIP files found to process")
             return
+
+        if limit > 0:
+            zip_files = zip_files[:limit]
+            logger.info(f"Limited to {limit} file(s)")
 
         for zip_name in zip_files:
             logger.info(f"\n{'='*50}\nProcessing: {zip_name}\n{'='*50}")
@@ -204,6 +213,12 @@ def main():
         action="store_true",
         help="Enable debug logging"
     )
+    parser.add_argument(
+        "-n", "--limit",
+        type=int,
+        default=0,
+        help="Limit number of files to process (0 = all)"
+    )
 
     args = parser.parse_args()
 
@@ -219,7 +234,7 @@ def main():
     config = load_config(str(config_path))
 
     logger.info("Starting Emlid log sync...")
-    sync_logs(config, dry_run=args.dry_run)
+    sync_logs(config, dry_run=args.dry_run, limit=args.limit)
     logger.info("Sync complete!")
 
 
