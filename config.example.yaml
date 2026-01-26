@@ -1,0 +1,20 @@
+# Emlid Log Sync Configuration
+# Copy this file to config.yaml and update with your values
+
+emlid:
+  host: "10.0.106.161"
+  port: 22
+  username: "reach"
+  password: "emlidreach"  # Change this!
+  log_path: "/home/reach/logs/"
+
+gcs:
+  bucket: "mpg-aerial-survey"
+  prefix: "surveys/gps_network/base/top_house/logs/"
+
+local:
+  temp_dir: "./temp"  # Temporary directory for downloads and extraction
+
+options:
+  delete_after_upload: true  # Delete local files after successful upload
+  file_pattern: "*.zip"      # Pattern for ZIP files to download
