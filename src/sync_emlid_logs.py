@@ -63,6 +63,41 @@ def list_remote_zips(sftp: paramiko.SFTPClient, remote_path: str, pattern: str) 
     return sorted(zips)
 
 
+def list_gcs_files(bucket_name: str, prefix: str) -> set[str]:
+    """List existing files in GCS bucket."""
+    gcs_path = f"gs://{bucket_name}/{prefix}"
+    cmd = ["gcloud", "storage", "ls", gcs_path]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+
+    if result.returncode != 0:
+        logger.warning(f"Could not list GCS files: {result.stderr}")
+        return set()
+
+    # Extract just filenames from full paths
+    files = set()
+    for line in result.stdout.strip().split("\n"):
+        if line:
+            filename = line.split("/")[-1]
+            if filename:
+                files.add(filename)
+
+    logger.info(f"Found {len(files)} existing files in GCS")
+    return files
+
+
+def predict_rtcm3_name(zip_name: str) -> str:
+    """Predict RTCM3 filename from ZIP name.
+
+    Pattern: TOP_HOUSE_B_20260107174243.zip -> TOP_HOUSE_B_base_20260107174243.RTCM3
+    """
+    base_name = zip_name.replace(".zip", "")
+    # Insert 'base_' after the last underscore before the timestamp
+    parts = base_name.rsplit("_", 1)
+    if len(parts) == 2:
+        return f"{parts[0]}_base_{parts[1]}.RTCM3"
+    return f"{base_name}_base.RTCM3"
+
+
 def download_zip(sftp: paramiko.SFTPClient, remote_path: str, filename: str, local_dir: Path) -> Path:
     """Download a ZIP file from remote device."""
     remote_file = f"{remote_path}/{filename}"
@@ -136,6 +171,9 @@ def sync_logs(config: dict, dry_run: bool = False, limit: int = 0) -> None:
     ssh = None
 
     try:
+        # List existing files in GCS to avoid re-downloading
+        existing_files = list_gcs_files(config["gcs"]["bucket"], config["gcs"]["prefix"])
+
         sftp, ssh = connect_sftp(config)
 
         remote_path = config["emlid"]["log_path"]
@@ -152,6 +190,12 @@ def sync_logs(config: dict, dry_run: bool = False, limit: int = 0) -> None:
 
         for zip_name in zip_files:
             logger.info(f"\n{'='*50}\nProcessing: {zip_name}\n{'='*50}")
+
+            # Check if already synced by predicting RTCM3 filename
+            predicted_name = predict_rtcm3_name(zip_name)
+            if predicted_name in existing_files:
+                logger.info(f"Skipping {zip_name} (already synced: {predicted_name})")
+                continue
 
             if dry_run:
                 logger.info(f"[DRY RUN] Would download and process {zip_name}")
