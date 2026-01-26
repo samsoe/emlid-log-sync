@@ -1,0 +1,27 @@
+# Local config (contains credentials)
+config.yaml
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+
+# Temp files from workflow
+*.zip
+*.rtcm3
+temp/
+
+# macOS
+.DS_Store
+._*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Conda/venv
+.conda/
+venv/
+.venv/
