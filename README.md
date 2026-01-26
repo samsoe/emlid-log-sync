@@ -4,9 +4,9 @@ Local utility for syncing RTCM3 correction logs from Emlid GNSS base stations to
 
 ## Prerequisites
 
-- WARP VPN connected (for access to Emlid device on internal network)
-- Google Cloud SDK with application default credentials configured
-- Conda or Python 3.11+
+- Network access to Emlid device (10.0.106.161) - either on internal network or via WARP VPN
+- Google Cloud SDK (`gcloud`) installed and authenticated
+- Python 3.11+
 
 ## Setup
 
@@ -61,6 +61,12 @@ python src/sync_emlid_logs.py -c /path/to/config.yaml
 
 ```bash
 python src/sync_emlid_logs.py -v
+```
+
+**Limit number of files (for testing):**
+
+```bash
+python src/sync_emlid_logs.py --limit 1
 ```
 
 ## Workflow
