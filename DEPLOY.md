@@ -1,10 +1,10 @@
-# Deployment Guide - Work Office Mac
+# Deployment Guide - Internal Network Mac
 
-This guide covers setting up automated daily syncing on the Mac inside the MPG Ranch network.
+This guide covers setting up automated daily syncing on a Mac with network access to the Emlid device.
 
 ## Prerequisites
 
-- Mac inside the network (can reach 10.0.106.161 directly, no VPN needed)
+- Mac with network access to the Emlid device (VPN if remote, or direct if on local network)
 - Python 3.11+
 - `gcloud` CLI installed and authenticated
 - Git installed
@@ -42,7 +42,7 @@ pip install -r requirements.txt
 gcloud auth application-default login
 ```
 
-Follow the browser prompts to authenticate with your Google account that has access to `mpg-aerial-survey` bucket.
+Follow the browser prompts to authenticate with your Google account that has access to your GCS bucket.
 
 ### 4. Create Configuration File
 
@@ -51,9 +51,9 @@ cp config.example.yaml config.yaml
 ```
 
 **Edit `config.yaml`:**
-- Update the Emlid password if you changed it from default
-- Verify the IP address is correct (should be 10.0.106.161)
-- Verify GCS bucket and prefix paths
+- Update the Emlid device IP address
+- Update the Emlid password (change from default!)
+- Verify GCS bucket and prefix paths match your setup
 
 ### 5. Test the Script
 
@@ -84,14 +84,14 @@ See [LAUNCHD_SETUP.md](./LAUNCHD_SETUP.md) for instructions on configuring the d
 
 ### Can't connect to Emlid device
 
-- Verify you're on the MPG Ranch network
-- Test: `ping 10.0.106.161`
-- Test SSH: `ssh reach@10.0.106.161` (password: emlidreach)
+- Verify you're on the correct network (or VPN connected if remote)
+- Test: `ping <EMLID_DEVICE_IP>`
+- Test SSH: `ssh reach@<EMLID_DEVICE_IP>` (use your device's password)
 
 ### GCS upload fails
 
 - Check authentication: `gcloud auth application-default print-access-token`
-- Verify bucket access: `gcloud storage ls gs://mpg-aerial-survey/surveys/gps_network/base/top_house/logs/`
+- Verify bucket access: `gcloud storage ls gs://<YOUR_BUCKET>/<YOUR_PREFIX>/`
 
 ### Python dependencies issues
 
@@ -119,5 +119,5 @@ pip install -r requirements.txt  # in case dependencies changed
 tail -f ~/Library/Logs/emlid-log-sync.log
 
 # Or check GCS directly
-gcloud storage ls gs://mpg-aerial-survey/surveys/gps_network/base/top_house/logs/
+gcloud storage ls gs://<YOUR_BUCKET>/<YOUR_PREFIX>/
 ```
