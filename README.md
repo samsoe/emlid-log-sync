@@ -94,3 +94,9 @@ See `config.example.yaml` for all available options:
 ## GCS Destination
 
 Files are uploaded to the bucket and prefix specified in your `config.yaml`.
+
+## Production Deployment
+
+For setting up automated daily syncing on a Mac inside the network, see:
+- **[DEPLOY.md](./DEPLOY.md)** - Complete setup guide for work machine
+- **[LAUNCHD_SETUP.md](./LAUNCHD_SETUP.md)** - Daily automation with launchd

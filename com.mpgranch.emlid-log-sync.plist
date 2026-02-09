@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Job Label (unique identifier) -->
+    <key>Label</key>
+    <string>com.mpgranch.emlid-log-sync</string>
+
+    <!-- Program to run -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>-c</string>
+        <string>
+            source ~/.bash_profile 2>/dev/null || source ~/.zshrc 2>/dev/null;
+            eval "$(conda shell.bash hook)" 2>/dev/null;
+            conda activate emlid-log-sync;
+            cd REPLACE_WITH_REPO_PATH;
+            python src/sync_emlid_logs.py
+        </string>
+    </array>
+
+    <!-- Run daily at 2:00 AM -->
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>2</integer>
+        <key>Minute</key>
+        <integer>0</integer>
+    </dict>
+
+    <!-- Logging -->
+    <key>StandardOutPath</key>
+    <string>REPLACE_WITH_HOME_DIR/Library/Logs/emlid-log-sync.log</string>
+    <key>StandardErrorPath</key>
+    <string>REPLACE_WITH_HOME_DIR/Library/Logs/emlid-log-sync.error.log</string>
+
+    <!-- Environment Variables -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin</string>
+        <key>HOME</key>
+        <string>REPLACE_WITH_HOME_DIR</string>
+    </dict>
+
+    <!-- Run on load (optional - starts immediately for testing) -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <!-- Restart if it crashes -->
+    <key>KeepAlive</key>
+    <false/>
+</dict>
+</plist>
