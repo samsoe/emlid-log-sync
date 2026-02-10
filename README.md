@@ -95,8 +95,18 @@ See `config.example.yaml` for all available options:
 
 Files are uploaded to the bucket and prefix specified in your `config.yaml`.
 
+## Downloading Logs for Analysis
+
+To download RTCM3 files from GCS for base health monitoring or analysis:
+
+```bash
+python src/download_logs.py --date 2026-01-20 --station top_house
+```
+
+See **[docs/DOWNLOAD_LOGS.md](./docs/DOWNLOAD_LOGS.md)** for full usage guide.
+
 ## Production Deployment
 
 For setting up automated daily syncing on a Mac inside the network, see:
-- **[DEPLOY.md](./DEPLOY.md)** - Complete setup guide for work machine
-- **[LAUNCHD_SETUP.md](./LAUNCHD_SETUP.md)** - Daily automation with launchd
+- **[docs/DEPLOY.md](./docs/DEPLOY.md)** - Complete setup guide for work machine
+- **[docs/LAUNCHD_SETUP.md](./docs/LAUNCHD_SETUP.md)** - Daily automation with launchd

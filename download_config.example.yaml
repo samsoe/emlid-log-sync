@@ -1,0 +1,12 @@
+# Download Logs Configuration
+# Copy this file to download_config.yaml and update with your values
+
+gcs:
+  bucket: "your-bucket-name"
+  prefix_template: "path/to/{station}/logs/"  # {station} will be replaced with station name
+
+# Default station name
+default_station: "your_station_name"
+
+# Default output directory for downloads
+output_dir: "./downloaded_logs"
