@@ -104,11 +104,18 @@ Example `.status.json`:
     "duration_sec": 86400
   },
   "position": {
-    "lat_deg": 46.76284659,
-    "lon_deg": -114.09685335,
-    "height_hae_m": 1109.94,
     "status": "STABLE",
-    "spread_m": 0.0
+    "spread_m": 0.0,
+    "position_init": {
+      "lat_deg": 46.76284659,
+      "lon_deg": -114.09685335,
+      "height_hae_m": 1109.94
+    },
+    "position_final": {
+      "lat_deg": 46.76284659,
+      "lon_deg": -114.09685335,
+      "height_hae_m": 1109.94
+    }
   },
   "satellites": {
     "min": 14,
