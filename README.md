@@ -74,9 +74,58 @@ python src/sync_emlid_logs.py --limit 1
 1. Connects to Emlid device via SFTP
 2. Lists ZIP archives in the device's log directory
 3. Downloads each ZIP to a local temp directory
-4. Extracts `.RTCM3` files only
-5. Uploads to GCS (skips files that already exist)
-6. Deletes local ZIP and extracted files after successful upload
+4. Extracts `.RTCM3` files
+5. Parses each RTCM3 and generates a `.status.json` health summary alongside it
+6. Uploads both files to GCS (skips files that already exist)
+7. Deletes local ZIP and extracted files after successful upload
+
+### Status JSON
+
+Each synced RTCM3 file gets a companion `.status.json` with position, satellite counts, and data outages:
+
+```
+gs://your-bucket/your-prefix/
+  ├── TOP_HOUSE_B_base_20260120174253.RTCM3
+  ├── TOP_HOUSE_B_base_20260120174253.status.json
+  ├── TOP_HOUSE_B_base_20260121174254.RTCM3
+  ├── TOP_HOUSE_B_base_20260121174254.status.json
+  └── ...
+```
+
+Example `.status.json`:
+
+```json
+{
+  "file": "TOP_HOUSE_B_base_20260120174253.RTCM3",
+  "generated_utc": "2026-02-10T15:30:00Z",
+  "time_span": {
+    "start": "2026:01:20:17:42:54",
+    "end": "2026:01:21:17:42:54",
+    "duration_sec": 86400
+  },
+  "position": {
+    "lat_deg": 46.76284659,
+    "lon_deg": -114.09685335,
+    "height_hae_m": 1109.94,
+    "status": "STABLE",
+    "spread_m": 0.0
+  },
+  "satellites": {
+    "min": 14,
+    "max": 20
+  },
+  "outages": [
+    { "start": "2026:01:21:05:19:36", "end": "2026:01:21:05:20:02" },
+    { "start": "2026:01:21:10:33:25", "end": "2026:01:21:10:33:51" }
+  ]
+}
+```
+
+You can also generate a status JSON for a local file without running a full sync:
+
+```bash
+python src/sync_emlid_logs.py --status path/to/file.RTCM3
+```
 
 ## Configuration
 
