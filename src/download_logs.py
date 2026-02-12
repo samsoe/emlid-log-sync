@@ -51,10 +51,11 @@ def list_logs(
     bucket_name: str,
     prefix: str,
     start_date: datetime,
-    end_date: datetime
+    end_date: datetime,
+    project: str | None = None
 ) -> list[storage.Blob]:
     """List RTCM3 files in GCS matching the date range."""
-    client = storage.Client()
+    client = storage.Client(project=project)
     bucket = client.bucket(bucket_name)
 
     # List all blobs with the prefix
@@ -139,6 +140,7 @@ def main():
     station = args.station or config.get("default_station", "station")
     output_dir_str = args.output or config.get("output_dir", "./downloaded_logs")
     gcs_bucket = config["gcs"]["bucket"]
+    gcs_project = config["gcs"].get("project")
     gcs_prefix_template = config["gcs"]["prefix_template"]
 
     # Parse dates
@@ -169,7 +171,7 @@ def main():
 
     # List matching files
     try:
-        blobs = list_logs(gcs_bucket, prefix, start_date, end_date)
+        blobs = list_logs(gcs_bucket, prefix, start_date, end_date, project=gcs_project)
     except Exception as e:
         print(f"Error listing files: {e}")
         sys.exit(1)

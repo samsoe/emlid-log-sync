@@ -12,21 +12,122 @@ Workflow:
 
 import argparse
 import fnmatch
+import json
 import logging
+import math
+import os
 import shutil
 import subprocess
 import sys
 import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 
 import paramiko
 import yaml
+
+from unpack_log import (
+    parse_rtcm3,
+    parse_filename_timestamp,
+    _gps_day_of_week,
+    gws_to_timestamp,
+    ecef_to_geodetic,
+    _detect_position_change,
+    detect_data_gaps,
+    _sat_counts_for_epoch,
+)
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+
+def _format_gnss_timestamp(dt):
+    """Format datetime as YYYY:MM:DD:HH:MM:SS."""
+    if dt is None:
+        return None
+    return dt.strftime("%Y:%m:%d:%H:%M:%S")
+
+
+def build_status_json(parse_result, filepath):
+    """Build lightweight status report dict from parsed RTCM3 data.
+
+    Returns a dict with: file, generated_utc, time_span, position,
+    satellites, outages.
+    """
+    file_date = parse_filename_timestamp(filepath)
+    gps_day = _gps_day_of_week(file_date) if file_date else 0
+    epoch_keys = sorted(parse_result.epochs.keys())
+
+    # Time span
+    if epoch_keys:
+        start_ts = gws_to_timestamp(epoch_keys[0], file_date, gps_day)
+        end_ts = gws_to_timestamp(epoch_keys[-1], file_date, gps_day)
+        time_span = {
+            "start": _format_gnss_timestamp(start_ts),
+            "end": _format_gnss_timestamp(end_ts),
+            "duration_sec": epoch_keys[-1] - epoch_keys[0],
+        }
+    else:
+        time_span = {"start": None, "end": None, "duration_sec": 0}
+
+    # Position
+    position = None
+    if parse_result.positions:
+        pos_info = _detect_position_change(parse_result.positions)
+
+        def _ecef_to_pos_dict(p):
+            x, y, z = p["ecef_x"], p["ecef_y"], p["ecef_z"]
+            if x is None or y is None or z is None:
+                return None
+            lat, lon, height = ecef_to_geodetic(x, y, z)
+            return {
+                "lat_deg": round(lat, 8),
+                "lon_deg": round(lon, 8),
+                "height_hae_m": round(height, 2),
+            }
+
+        init = _ecef_to_pos_dict(parse_result.positions[0])
+        final = _ecef_to_pos_dict(parse_result.positions[-1])
+        if init:
+            position = {
+                "status": "STABLE" if pos_info["stable"] else "MOVED",
+                "spread_m": round(pos_info["spread_m"], 4),
+                "position_init": init,
+                "position_final": final,
+            }
+
+    # Satellites (min/max total across all epochs)
+    if epoch_keys:
+        totals = [
+            sum(_sat_counts_for_epoch(parse_result.epochs[k]).values())
+            for k in epoch_keys
+        ]
+        satellites = {"min": min(totals), "max": max(totals)}
+    else:
+        satellites = {"min": 0, "max": 0}
+
+    # Outages
+    gaps = detect_data_gaps(epoch_keys)
+    outages = []
+    for gap in gaps:
+        start_t = gws_to_timestamp(gap["start_gws"], file_date, gps_day)
+        end_t = gws_to_timestamp(gap["end_gws"], file_date, gps_day)
+        outages.append({
+            "start": _format_gnss_timestamp(start_t),
+            "end": _format_gnss_timestamp(end_t),
+        })
+
+    return {
+        "file": os.path.basename(filepath),
+        "generated_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "time_span": time_span,
+        "position": position,
+        "satellites": satellites,
+        "outages": outages,
+    }
 
 
 def load_config(config_path: str) -> dict:
@@ -197,10 +298,6 @@ def sync_logs(config: dict, dry_run: bool = False, limit: int = 0) -> None:
                 logger.info(f"Skipping {zip_name} (already synced: {predicted_name})")
                 continue
 
-            if dry_run:
-                logger.info(f"[DRY RUN] Would download and process {zip_name}")
-                continue
-
             # Download ZIP
             zip_path = download_zip(sftp, remote_path, zip_name, temp_dir)
 
@@ -213,9 +310,31 @@ def sync_logs(config: dict, dry_run: bool = False, limit: int = 0) -> None:
                 logger.warning(f"No RTCM3 files found in {zip_name}")
                 continue
 
-            # Upload to GCS
+            # Generate status JSON for each RTCM3 file
+            for rtcm3_file in rtcm3_files:
+                try:
+                    logger.info(f"Generating status report for {rtcm3_file.name}...")
+                    pr = parse_rtcm3(str(rtcm3_file))
+                    status = build_status_json(pr, str(rtcm3_file))
+                    json_path = rtcm3_file.parent / (rtcm3_file.stem + ".status.json")
+                    with open(json_path, "w") as jf:
+                        json.dump(status, jf, indent=2)
+                    logger.info(f"Wrote {json_path}")
+                except Exception as e:
+                    logger.warning(f"Status report failed for {rtcm3_file.name}: {e}")
+
+            if dry_run:
+                dry_run_dir = Path("dry_run")
+                dry_run_dir.mkdir(exist_ok=True)
+                for f in extract_dir.iterdir():
+                    shutil.copy2(f, dry_run_dir / f.name)
+                logger.info(f"[DRY RUN] Output in {dry_run_dir.resolve()}")
+                continue
+
+            # Upload RTCM3 + status JSON to GCS
+            json_files = list(extract_dir.glob("*.status.json"))
             upload_to_gcs(
-                rtcm3_files,
+                rtcm3_files + json_files,
                 config["gcs"]["bucket"],
                 config["gcs"]["prefix"]
             )
@@ -250,7 +369,12 @@ def main():
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="List files without downloading or uploading"
+        help="Pull from base and generate status JSON locally, skip GCS upload"
+    )
+    parser.add_argument(
+        "--status",
+        metavar="RTCM3_FILE",
+        help="Generate .status.json for a local RTCM3 file (no sync)",
     )
     parser.add_argument(
         "-v", "--verbose",
@@ -268,6 +392,21 @@ def main():
 
     if args.verbose:
         logging.getLogger().setLevel(logging.DEBUG)
+
+    # Local status JSON generation — no config or network needed
+    if args.status:
+        rtcm3_path = Path(args.status)
+        if not rtcm3_path.is_file():
+            logger.error(f"File not found: {rtcm3_path}")
+            sys.exit(1)
+        logger.info(f"Parsing {rtcm3_path.name}...")
+        pr = parse_rtcm3(str(rtcm3_path))
+        status = build_status_json(pr, str(rtcm3_path))
+        json_path = rtcm3_path.parent / (rtcm3_path.stem + ".status.json")
+        with open(json_path, "w") as f:
+            json.dump(status, f, indent=2)
+        logger.info(f"Wrote {json_path}")
+        return
 
     config_path = Path(args.config)
     if not config_path.exists():

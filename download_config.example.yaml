@@ -2,6 +2,7 @@
 # Copy this file to download_config.yaml and update with your values
 
 gcs:
+  project: "your-gcp-project-id"
   bucket: "your-bucket-name"
   prefix_template: "path/to/{station}/logs/"  # {station} will be replaced with station name
 
