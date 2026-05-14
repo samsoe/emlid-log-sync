@@ -1,5 +1,6 @@
 # Local config (contains credentials)
 config.yaml
+config.indian_ridge.yaml
 config.local.yaml
 download_config.yaml
 
